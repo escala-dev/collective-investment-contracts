@@ -196,13 +196,7 @@ impl PaymentAndReceiptContract {
         client.transfer(&env.current_contract_address(), &to, &amount);
 
         let now = env.ledger().timestamp();
-        log!(
-            &env,
-            "Sent {} from contract to {} at {}",
-            amount,
-            to,
-            now
-        );
+        log!(&env, "Sent {} from contract to {} at {}", amount, to, now);
     }
 }
 

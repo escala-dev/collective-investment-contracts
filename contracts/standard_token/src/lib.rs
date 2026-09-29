@@ -1,5 +1,5 @@
 #![no_std]
-use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, String, symbol_short};
+use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Address, Env, String};
 
 #[contract]
 pub struct StandardToken;
@@ -48,10 +48,17 @@ impl StandardToken {
         let admin: Address = e.storage().persistent().get(&DataKey::Admin).unwrap();
         admin.require_auth();
 
-        let balance = e.storage().persistent().get(&DataKey::Balance(to.clone())).unwrap_or(0_i128);
-        e.storage().persistent().set(&DataKey::Balance(to.clone()), &(balance + amount));
-        
-        e.events().publish((symbol_short!("mint"), admin, to), amount);
+        let balance = e
+            .storage()
+            .persistent()
+            .get(&DataKey::Balance(to.clone()))
+            .unwrap_or(0_i128);
+        e.storage()
+            .persistent()
+            .set(&DataKey::Balance(to.clone()), &(balance + amount));
+
+        e.events()
+            .publish((symbol_short!("mint"), admin, to), amount);
     }
 
     pub fn burn(e: Env, from: Address, amount: i128) {
@@ -60,11 +67,17 @@ impl StandardToken {
         }
         from.require_auth();
 
-        let balance = e.storage().persistent().get(&DataKey::Balance(from.clone())).unwrap_or(0_i128);
+        let balance = e
+            .storage()
+            .persistent()
+            .get(&DataKey::Balance(from.clone()))
+            .unwrap_or(0_i128);
         if balance < amount {
             panic!("insufficient balance");
         }
-        e.storage().persistent().set(&DataKey::Balance(from.clone()), &(balance - amount));
+        e.storage()
+            .persistent()
+            .set(&DataKey::Balance(from.clone()), &(balance - amount));
 
         e.events().publish((symbol_short!("burn"), from), amount);
     }
@@ -75,16 +88,29 @@ impl StandardToken {
         }
         from.require_auth();
 
-        let from_balance = e.storage().persistent().get(&DataKey::Balance(from.clone())).unwrap_or(0_i128);
+        let from_balance = e
+            .storage()
+            .persistent()
+            .get(&DataKey::Balance(from.clone()))
+            .unwrap_or(0_i128);
         if from_balance < amount {
             panic!("insufficient balance");
         }
-        e.storage().persistent().set(&DataKey::Balance(from.clone()), &(from_balance - amount));
+        e.storage()
+            .persistent()
+            .set(&DataKey::Balance(from.clone()), &(from_balance - amount));
 
-        let to_balance = e.storage().persistent().get(&DataKey::Balance(to.clone())).unwrap_or(0_i128);
-        e.storage().persistent().set(&DataKey::Balance(to.clone()), &(to_balance + amount));
+        let to_balance = e
+            .storage()
+            .persistent()
+            .get(&DataKey::Balance(to.clone()))
+            .unwrap_or(0_i128);
+        e.storage()
+            .persistent()
+            .set(&DataKey::Balance(to.clone()), &(to_balance + amount));
 
-        e.events().publish((symbol_short!("transfer"), from, to), amount);
+        e.events()
+            .publish((symbol_short!("transfer"), from, to), amount);
     }
 
     pub fn approve(e: Env, from: Address, spender: Address, amount: i128, expiration_ledger: u32) {
@@ -92,19 +118,33 @@ impl StandardToken {
             panic!("negative amount");
         }
         from.require_auth();
-        
-        // Using temporary storage for allowance if we want automatic expiry, but manual impl often uses persistent with check
-        // Or simpler: just persistent.
-        // Usually standard is "approve" sets allowance.
-        let key = DataKey::Allowance(AllowanceDataKey { from: from.clone(), spender: spender.clone() });
-        e.storage().persistent().set(&key, &AllowanceValue { amount, expiration_ledger });
-        
-        e.events().publish((symbol_short!("approve"), from, spender), amount);
+
+        let key = DataKey::Allowance(AllowanceDataKey {
+            from: from.clone(),
+            spender: spender.clone(),
+        });
+        e.storage().persistent().set(
+            &key,
+            &AllowanceValue {
+                amount,
+                expiration_ledger,
+            },
+        );
+
+        e.events()
+            .publish((symbol_short!("approve"), from, spender), amount);
     }
 
     pub fn allowance(e: Env, from: Address, spender: Address) -> i128 {
         let key = DataKey::Allowance(AllowanceDataKey { from, spender });
-        let val: AllowanceValue = e.storage().persistent().get(&key).unwrap_or(AllowanceValue { amount: 0, expiration_ledger: 0 });
+        let val: AllowanceValue = e
+            .storage()
+            .persistent()
+            .get(&key)
+            .unwrap_or(AllowanceValue {
+                amount: 0,
+                expiration_ledger: 0,
+            });
         if val.expiration_ledger > 0 && e.ledger().sequence() > val.expiration_ledger {
             0
         } else {
@@ -118,43 +158,70 @@ impl StandardToken {
         }
         spender.require_auth();
 
-        // Check Allowance
-        let key = DataKey::Allowance(AllowanceDataKey { from: from.clone(), spender: spender.clone() });
-        let val: AllowanceValue = e.storage().persistent().get(&key).unwrap_or(AllowanceValue { amount: 0, expiration_ledger: 0 });
-        
+        let key = DataKey::Allowance(AllowanceDataKey {
+            from: from.clone(),
+            spender: spender.clone(),
+        });
+        let val: AllowanceValue = e
+            .storage()
+            .persistent()
+            .get(&key)
+            .unwrap_or(AllowanceValue {
+                amount: 0,
+                expiration_ledger: 0,
+            });
+
         if val.expiration_ledger > 0 && e.ledger().sequence() > val.expiration_ledger {
             panic!("allowance expired");
         }
         if val.amount < amount {
-             panic!("insufficient allowance");
+            panic!("insufficient allowance");
         }
 
-        // Check Balance
-        let from_balance = e.storage().persistent().get(&DataKey::Balance(from.clone())).unwrap_or(0_i128);
+        let from_balance = e
+            .storage()
+            .persistent()
+            .get(&DataKey::Balance(from.clone()))
+            .unwrap_or(0_i128);
         if from_balance < amount {
-             panic!("insufficient balance");
+            panic!("insufficient balance");
         }
 
-        // Update Allowance
-        e.storage().persistent().set(&key, &AllowanceValue { amount: val.amount - amount, expiration_ledger: val.expiration_ledger });
+        e.storage().persistent().set(
+            &key,
+            &AllowanceValue {
+                amount: val.amount - amount,
+                expiration_ledger: val.expiration_ledger,
+            },
+        );
 
-        // Transfer
-        e.storage().persistent().set(&DataKey::Balance(from.clone()), &(from_balance - amount));
-        let to_balance = e.storage().persistent().get(&DataKey::Balance(to.clone())).unwrap_or(0_i128);
-        e.storage().persistent().set(&DataKey::Balance(to.clone()), &(to_balance + amount));
+        e.storage()
+            .persistent()
+            .set(&DataKey::Balance(from.clone()), &(from_balance - amount));
+        let to_balance = e
+            .storage()
+            .persistent()
+            .get(&DataKey::Balance(to.clone()))
+            .unwrap_or(0_i128);
+        e.storage()
+            .persistent()
+            .set(&DataKey::Balance(to.clone()), &(to_balance + amount));
 
-        e.events().publish((symbol_short!("transfer"), from, to), amount);
+        e.events()
+            .publish((symbol_short!("transfer"), from, to), amount);
     }
 
-    // --- Metadata Views ---
     pub fn balance(e: Env, id: Address) -> i128 {
-        e.storage().persistent().get(&DataKey::Balance(id)).unwrap_or(0)
+        e.storage()
+            .persistent()
+            .get(&DataKey::Balance(id))
+            .unwrap_or(0)
     }
 
     pub fn name(e: Env) -> String {
         e.storage().persistent().get(&DataKey::Name).unwrap()
     }
-    
+
     pub fn symbol(e: Env) -> String {
         e.storage().persistent().get(&DataKey::Symbol).unwrap()
     }
